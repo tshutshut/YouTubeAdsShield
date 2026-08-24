@@ -66,7 +66,7 @@
         cover.style.height = '100%';
         cover.style.backgroundColor = 'black';
         cover.style.opacity = '1';
-        cover.style.zIndex = '999';
+        cover.style.zIndex = '2147483646';
         cover.style.pointerEvents = 'none';
         el.appendChild(cover);
 
