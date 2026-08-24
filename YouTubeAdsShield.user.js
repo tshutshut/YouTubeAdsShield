@@ -29,45 +29,6 @@
     const OUTLINE_Z = 1001; // z-index of the white outline (above overlay)
 
     // -------------------------------------------------------------------------
-    // Debug / status floating box UI (fixed in the viewport)
-    // -------------------------------------------------------------------------
-
-    // Create a small fixed-position panel to show mouse coordinates + status
-    const box = document.createElement('div');
-    box.style.position = 'fixed';
-    box.style.top = '50px'; // avoid overlapping with YT header
-    box.style.left = '15px';
-    box.style.width = '70px';
-    box.style.background = 'rgba(10, 10, 10, 1)'; // red background for visibility
-    box.style.color = 'white';
-    box.style.padding = '10px';
-    box.style.boxSizing = 'border-box';
-    box.style.zIndex = '2147483647'; // sit above all site layers (max-ish z-index)
-    box.style.fontSize = '14px';
-    box.style.fontFamily = 'monospace';
-    box.style.lineHeight = '1.5';
-
-    // Create mouse position line
-    // const mouseLine = document.createElement('div');
-    // mouseLine.textContent = 'mouse pos x: --, y: --';
-
-    // Create status line for "video" / "ad" / "ad skip"
-    const statusLine = document.createElement('div');
-    statusLine.textContent = 'Status: ...';
-
-    // Append lines into the floating box and attach to document
-    // box.appendChild(mouseLine);
-    box.appendChild(statusLine);
-    document.body.appendChild(box);
-
-    // Track mouse and display current client coordinates
-    /*
-    document.addEventListener('mousemove', (e) => {
-        // Using clientX/clientY keeps values relative to the viewport (not page scroll)
-        mouseLine.textContent = `mouse pos x: ${e.clientX}, y: ${e.clientY}`;
-    });*/
-
-    // -------------------------------------------------------------------------
     // Utilities
     // -------------------------------------------------------------------------
 
@@ -108,7 +69,6 @@
      * Purpose:
      *   - Polls YouTube's player state to determine if an ad is playing.
      *   - Mutes video during ads; restores volume after ads.
-     *   - Updates the debug/status box text.
      *   - Creates/removes the full-player overlay with a “hole” over the skip button.
      *   - Creates/updates/removes the white skip outline rectangle.
      *
@@ -118,7 +78,6 @@
      * Outputs:
      *   - Mutates the <video> element volume when needed.
      *   - Adds/removes overlay and outline DOM elements over the player.
-     *   - Updates text content of the statusLine debug element.
      *
      * Returns:
      *   - void
@@ -142,13 +101,6 @@
                 video.volume = 0; // mute by volume so we can restore consistently
             }
 
-            // Update the status line depending on skip button visibility
-            if (isVisible(skipButton)) {
-                statusLine.textContent = 'ad skip';
-            } else {
-                statusLine.textContent = 'ad';
-            }
-
             // Ensure overlay is present and positioned (with a hole over the skip button if available)
             createVideoOverlay(skipButton);
 
@@ -160,7 +112,6 @@
             }
         } else {
             // Not an ad: normal video playback
-            statusLine.textContent = 'video';
 
             // If we previously set volume to 0, restore a reasonable default
             if (video.volume === 0) {
