@@ -2,7 +2,7 @@
 // @name         YouTube Ad Overlay with Skip Button Visible + Skip Outline
 // @namespace    http://tampermonkey.net/
 // @version      0.5
-// @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. Adds a fixed-size white outline where the skip button appears. The overlay adjusts on window resize and appears only during ads.
+// @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. Adds a glowing white outline where the skip button appears. The overlay adjusts on window resize and appears only during ads.
 // @author       tshutshut
 // @match        https://www.youtube.com/*
 // @grant        none
@@ -15,46 +15,19 @@
     // Constants and top-level state
     // -------------------------------------------------------------------------
 
-    // Default volume to restore when an ad ends (used if volume was forced to 0)
     const DEFAULT_VOLUME = 0.5;
-
-    // Handle to the ad overlay element (created during ads, removed otherwise)
     let overlay = null;
 
-    // Fixed-size white outline around the skip button area
     const SKIP_OUTLINE_ID = 'skip-outline';
-    const SKIP_OUTLINE_WIDTH = 160; // px — adjust to taste
-    const SKIP_OUTLINE_HEIGHT = 48; // px — adjust to taste
-    const OVERLAY_Z = 1000; // z-index of the black overlay
-    const OUTLINE_Z = 1001; // z-index of the white outline (above overlay)
+    const SKIP_OUTLINE_WIDTH = 160;
+    const SKIP_OUTLINE_HEIGHT = 48;
+    const OVERLAY_Z = 1000;
+    const OUTLINE_Z = 1001;
 
     // -------------------------------------------------------------------------
     // Utilities
     // -------------------------------------------------------------------------
 
-    /**
-     * FUNCTION: isVisible
-     *
-     * Purpose:
-     *   Checks whether a DOM element is visibly rendered (i.e., has a layout box
-     *   and is not hidden via CSS visibility).
-     *
-     * Inputs:
-     *   - el: HTMLElement | null
-     *       The element to test.
-     *
-     * Outputs:
-     *   - None (no DOM mutations).
-     *
-     * Returns:
-     *   - Boolean:
-     *       true  => the element exists, has a non-null offsetParent, and CSS visibility != 'hidden'
-     *       false => otherwise (including if el is null/undefined)
-     *
-     * Notes:
-     *   - offsetParent check filters out elements with display:none or detached from layout.
-     *   - This is a heuristic; elements can still be "invisible" for other reasons (opacity 0, clipped, etc.).
-     */
     function isVisible(el) {
         return el && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden';
     }
@@ -63,68 +36,45 @@
     // Core logic: detect ad state, mute/unmute, manage overlays
     // -------------------------------------------------------------------------
 
-    /**
-     * FUNCTION: updateStatusAndVolume
-     *
-     * Purpose:
-     *   - Polls YouTube's player state to determine if an ad is playing.
-     *   - Mutes video during ads; restores volume after ads.
-     *   - Creates/removes the full-player overlay with a “hole” over the skip button.
-     *   - Creates/updates/removes the white skip outline rectangle.
-     */
     function updateStatusAndVolume() {
-        const video = document.querySelector('video'); // primary <video>
-        const adPlaying = document.querySelector('.ad-showing'); // ad state marker
-        const skipButton = document.querySelector('.ytp-skip-ad-button'); // skip button
+        const video = document.querySelector('video');
+        const adPlaying = document.querySelector('.ad-showing');
+        const skipButton = document.querySelector('.ytp-skip-ad-button');
 
-        if (!video) return; // Bail if no video (e.g., initial page load, transitions)
+        if (!video) return;
 
         if (adPlaying) {
-            // During ads: force silence by setting volume to 0 (non-destructive vs muted flag)
             if (!video.muted && video.volume > 0) {
-                video.volume = 0; // mute by volume so we can restore consistently
+                video.volume = 0;
             }
 
-            // Ensure overlay is present and positioned (with a hole over the skip button if available)
             createVideoOverlay(skipButton);
 
-            // Ensure the white outline is drawn and positioned if the skip button is visible
             if (isVisible(skipButton)) {
                 createOrUpdateSkipOutline(skipButton);
             } else {
                 removeSkipOutline();
             }
         } else {
-            // Not an ad: normal video playback
-
-            // If we previously set volume to 0, restore a reasonable default
             if (video.volume === 0) {
                 video.volume = DEFAULT_VOLUME;
             }
 
-            // Remove ad overlay and skip outline if present
             removeVideoOverlay();
             removeSkipOutline();
         }
     }
 
     // -------------------------------------------------------------------------
-    // Page ad masking for "in-page" ads (thumbnails, companion, etc.)
+    // Page ad masking for "in-page" ads
     // -------------------------------------------------------------------------
 
-    /**
-     * FUNCTION: maskElement
-     *
-     * Purpose:
-     *   Visually masks a given element by placing a full-cover black overlay on it
-     *   and disabling pointer events, effectively "hiding" it while keeping layout.
-     */
     function maskElement(el) {
-        if (el.dataset._masked === 'true') return; // Avoid re-applying mask
+        if (el.dataset._masked === 'true') return;
 
-        el.style.position = 'relative'; // host for absolutely-positioned child
+        el.style.position = 'relative';
 
-        const cover = document.createElement('div'); // local var, not to clash with global 'overlay'
+        const cover = document.createElement('div');
         cover.style.position = 'absolute';
         cover.style.top = '0';
         cover.style.left = '0';
@@ -133,21 +83,13 @@
         cover.style.backgroundColor = 'black';
         cover.style.opacity = '1';
         cover.style.zIndex = '999';
-        cover.style.pointerEvents = 'none'; // don't block pointer events to *siblings*
+        cover.style.pointerEvents = 'none';
         el.appendChild(cover);
 
-        el.style.pointerEvents = 'none'; // disable clicks on the masked element itself
+        el.style.pointerEvents = 'none';
         el.dataset._masked = 'true';
     }
 
-    /**
-     * FUNCTION: hideInPageAds
-     *
-     * Purpose:
-     *   Finds and masks common YouTube in-page ad containers (e.g., promoted videos,
-     *   display ads, companion slots). Also attempts a heuristic on regular video
-     *   renderers with "Ad"/"Sponsored" badges.
-     */
     function hideInPageAds() {
         const adSelectors = [
             'ytd-promoted-video-renderer',
@@ -159,11 +101,9 @@
             'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]'
         ];
 
-        // Mask all known ad container types
         const ads = document.querySelectorAll(adSelectors.join(', '));
         ads.forEach(maskElement);
 
-        // Heuristic: look for badges that indicate "Ad" or "Sponsored"
         const possibleAds = document.querySelectorAll('ytd-video-renderer, ytd-grid-video-renderer');
         possibleAds.forEach(el => {
             const badge = el.querySelector('#badge, .badge');
@@ -174,21 +114,13 @@
     }
 
     // -------------------------------------------------------------------------
-    // Video overlay creation/removal (with clickable hole over skip button)
+    // Video overlay creation/removal
     // -------------------------------------------------------------------------
 
-    /**
-     * FUNCTION: createVideoOverlay
-     *
-     * Purpose:
-     *   Adds a full-size opaque overlay on top of the HTML5 video player area while an ad is playing,
-     *   with a transparent "hole" positioned exactly over the Skip Ad button to keep it clickable.
-     */
     function createVideoOverlay(skipButton) {
-        const player = document.querySelector('.html5-video-player'); // YouTube player root
-        if (!player || document.getElementById('video-overlay')) return; // Nothing to do
+        const player = document.querySelector('.html5-video-player');
+        if (!player || document.getElementById('video-overlay')) return;
 
-        // Create the full-cover overlay layer
         overlay = document.createElement('div');
         overlay.id = 'video-overlay';
         overlay.style.position = 'absolute';
@@ -196,15 +128,12 @@
         overlay.style.left = '0';
         overlay.style.width = '100%';
         overlay.style.height = '100%';
-        overlay.style.backgroundColor = 'rgba(0, 0, 0, 1)'; // full black
-        overlay.style.pointerEvents = 'none'; // don't block interactions except where we explicitly re-enable
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 1)';
+        overlay.style.pointerEvents = 'none';
         overlay.style.zIndex = String(OVERLAY_Z);
 
-        // If we have a skip button, cut a "hole" over it to allow clicking
         if (skipButton) {
             const hole = document.createElement('div');
-
-            // Compute absolute rects and translate skipButton rect into player-local coordinates
             const rect = skipButton.getBoundingClientRect();
             const playerRect = player.getBoundingClientRect();
 
@@ -214,12 +143,11 @@
             hole.style.left = `${rect.left - playerRect.left}px`;
             hole.style.top = `${rect.top - playerRect.top}px`;
             hole.style.backgroundColor = 'transparent';
-            hole.style.pointerEvents = 'auto'; // re-enable pointer events over the hole only
+            hole.style.pointerEvents = 'auto';
 
             overlay.appendChild(hole);
         }
 
-        // Ensure the player can host absolutely-positioned children
         const existingPosition = getComputedStyle(player).position;
         if (existingPosition === 'static' || !existingPosition) {
             player.style.position = 'relative';
@@ -228,12 +156,6 @@
         player.appendChild(overlay);
     }
 
-    /**
-     * FUNCTION: removeVideoOverlay
-     *
-     * Purpose:
-     *   Deletes the overlay added by createVideoOverlay (if present).
-     */
     function removeVideoOverlay() {
         const existingOverlay = document.getElementById('video-overlay');
         if (existingOverlay) {
@@ -242,48 +164,42 @@
     }
 
     // -------------------------------------------------------------------------
-    // White "skip outline" creation/removal (fixed-size frame over skip area)
+    // Glowing skip-button highlight
     // -------------------------------------------------------------------------
 
-    /**
-     * FUNCTION: createOrUpdateSkipOutline
-     *
-     * Purpose:
-     *   Draws (or repositions) a fixed-size glowing white rectangle above the video player,
-     *   centered on the current skip button position. The rectangle is purely visual
-     *   and allows clicks to pass through it (no interaction blocking).
-     */
     function createOrUpdateSkipOutline(skipButton) {
         if (!skipButton) return;
 
         const player = document.querySelector('.html5-video-player');
         if (!player) return;
 
-        // Get geometry relative to viewport, then translate to player-local coordinates
         const sbRect = skipButton.getBoundingClientRect();
         const playerRect = player.getBoundingClientRect();
 
-        // Compute the center of the skip button, then center our fixed-size rectangle there
         const centerX = sbRect.left - playerRect.left + sbRect.width / 2;
         const centerY = sbRect.top - playerRect.top + sbRect.height / 2;
 
         const left = Math.round(centerX - SKIP_OUTLINE_WIDTH / 2);
         const top = Math.round(centerY - SKIP_OUTLINE_HEIGHT / 2);
 
-        // Either re-use existing outline or create it
         let outline = document.getElementById(SKIP_OUTLINE_ID);
         if (!outline) {
             outline = document.createElement('div');
             outline.id = SKIP_OUTLINE_ID;
             outline.style.position = 'absolute';
-            outline.style.border = '3px solid white'; // white frame
-            outline.style.background = 'transparent'; // no fill
-            outline.style.pointerEvents = 'none'; // DO NOT consume clicks
-            outline.style.zIndex = String(OUTLINE_Z); // above black overlay
+            outline.style.border = '3px solid white';
+            outline.style.background = 'transparent';
+            outline.style.pointerEvents = 'none';
+            outline.style.zIndex = String(OUTLINE_Z);
             outline.style.borderRadius = '4px';
-            outline.style.boxShadow = '0 0 4px rgba(255,255,255,1), 0 0 10px rgba(255,255,255,0.95), 0 0 20px rgba(255,255,255,0.8), 0 0 35px rgba(100,180,255,0.55)';
 
-            // Ensure the player can host absolutely-positioned children
+            // A bright white core surrounded by several layers of glow.
+            outline.style.boxShadow =
+                '0 0 4px rgba(255,255,255,1), ' +
+                '0 0 10px rgba(255,255,255,0.95), ' +
+                '0 0 20px rgba(255,255,255,0.8), ' +
+                '0 0 35px rgba(100,180,255,0.55)';
+
             const existingPosition = getComputedStyle(player).position;
             if (existingPosition === 'static' || !existingPosition) {
                 player.style.position = 'relative';
@@ -291,19 +207,12 @@
             player.appendChild(outline);
         }
 
-        // Size + position update on every call (keeps it aligned as UI shifts)
         outline.style.width = `${SKIP_OUTLINE_WIDTH}px`;
         outline.style.height = `${SKIP_OUTLINE_HEIGHT}px`;
         outline.style.left = `${left}px`;
         outline.style.top = `${top}px`;
     }
 
-    /**
-     * FUNCTION: removeSkipOutline
-     *
-     * Purpose:
-     *   Removes the glowing rectangle that frames the skip button.
-     */
     function removeSkipOutline() {
         const outline = document.getElementById(SKIP_OUTLINE_ID);
         if (outline) outline.remove();
@@ -313,32 +222,22 @@
     // Initial run + observers + timers
     // -------------------------------------------------------------------------
 
-    // First pass: mask in-page ads (thumbnails/companion) and set playback state
     hideInPageAds();
     updateStatusAndVolume();
 
-    // Observe DOM changes (YouTube is a SPA; content is added dynamically)
     const observer = new MutationObserver(() => {
-        // On any DOM change, re-check in-page ads (cheap heuristic; runs very often)
         hideInPageAds();
-        // Note: We do not update the overlay here to avoid excessive layout thrash.
-        // The setInterval below handles ad-state polling at 100ms cadence.
     });
 
-    // Start observing for child mutations anywhere in the document
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Poll the player state frequently to catch ad start/stop and adjust overlay/volume
-    // 100ms is a tradeoff between responsiveness and overhead.
     setInterval(updateStatusAndVolume, 100);
 
-    // Reposition overlay hole and outline when the window resizes (skip button rect will move)
     window.addEventListener('resize', () => {
         const skipButton = document.querySelector('.ytp-skip-ad-button');
-        removeVideoOverlay(); // Remove old overlay (invalid geometry)
-        createVideoOverlay(skipButton); // Recreate with updated coordinates
+        removeVideoOverlay();
+        createVideoOverlay(skipButton);
 
-        // Reposition the outline too
         if (isVisible(skipButton)) {
             createOrUpdateSkipOutline(skipButton);
         } else {
@@ -346,7 +245,4 @@
         }
     });
 
-    // -------------------------------------------------------------------------
-    // End of IIFE
-    // -------------------------------------------------------------------------
 })();
