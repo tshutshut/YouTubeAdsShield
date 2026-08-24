@@ -2,7 +2,7 @@
 // @name         YouTube Ad Overlay with Skip Button Visible + Skip Outline
 // @namespace    http://tampermonkey.net/
 // @version      0.5
-// @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. Adds a fixed-size white glowing "HOPE" box where the skip button appears. The overlay adjusts on window resize and appears only during ads.
+// @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. Adds a white glowing "hope" box where the skip button appears. The overlay adjusts on window resize and appears only during ads.
 // @author       tshutshut
 // @match        https://www.youtube.com/*
 // @grant        none
@@ -168,7 +168,7 @@
             outline.style.height = `${SKIP_OUTLINE_HEIGHT}px`;
             outline.style.boxSizing = 'border-box';
             outline.style.border = '3px solid white';
-            outline.style.background = 'transparent';
+            outline.style.background = 'white';
             outline.style.pointerEvents = 'none';
             outline.style.zIndex = String(OUTLINE_Z);
             outline.style.borderRadius = '4px';
@@ -180,13 +180,12 @@
             outline.style.display = 'flex';
             outline.style.alignItems = 'center';
             outline.style.justifyContent = 'center';
-            outline.style.color = 'white';
+            outline.style.color = 'black';
             outline.style.fontFamily = 'Arial, sans-serif';
             outline.style.fontSize = '16px';
-            outline.style.fontWeight = '700';
-            outline.style.letterSpacing = '2px';
-            outline.style.textShadow = '0 0 4px white, 0 0 10px white';
-            outline.textContent = 'HOPE';
+            outline.style.fontWeight = '400';
+            outline.style.letterSpacing = '1px';
+            outline.textContent = 'hope';
 
             const existingPosition = getComputedStyle(player).position;
             if (existingPosition === 'static' || !existingPosition) {
