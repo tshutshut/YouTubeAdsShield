@@ -71,22 +71,6 @@
      *   - Mutes video during ads; restores volume after ads.
      *   - Creates/removes the full-player overlay with a “hole” over the skip button.
      *   - Creates/updates/removes the white skip outline rectangle.
-     *
-     * Inputs:
-     *   - None (queries DOM for video elements and ad markers).
-     *
-     * Outputs:
-     *   - Mutates the <video> element volume when needed.
-     *   - Adds/removes overlay and outline DOM elements over the player.
-     *
-     * Returns:
-     *   - void
-     *
-     * Notes:
-     *   - Relies on YouTube's current CSS classes:
-     *       * '.ad-showing' on the player during ads.
-     *       * '.ytp-skip-ad-button' for the skip button (if present).
-     *   - These class names can change; if behavior breaks, update selectors.
      */
     function updateStatusAndVolume() {
         const video = document.querySelector('video'); // primary <video>
@@ -134,20 +118,6 @@
      * Purpose:
      *   Visually masks a given element by placing a full-cover black overlay on it
      *   and disabling pointer events, effectively "hiding" it while keeping layout.
-     *
-     * Inputs:
-     *   - el: HTMLElement
-     *       The target element to mask.
-     *
-     * Outputs:
-     *   - Mutates the target element's style (position, pointer-events) and appends a child overlay.
-     *
-     * Returns:
-     *   - void
-     *
-     * Notes:
-     *   - Uses a data attribute (data-_masked) to avoid double-masking the same element.
-     *   - Keeps layout intact vs. display:none, which avoids reflow jumps.
      */
     function maskElement(el) {
         if (el.dataset._masked === 'true') return; // Avoid re-applying mask
@@ -177,19 +147,6 @@
      *   Finds and masks common YouTube in-page ad containers (e.g., promoted videos,
      *   display ads, companion slots). Also attempts a heuristic on regular video
      *   renderers with "Ad"/"Sponsored" badges.
-     *
-     * Inputs:
-     *   - None.
-     *
-     * Outputs:
-     *   - Masks matching ad elements (adds overlays and sets pointer-events).
-     *
-     * Returns:
-     *   - void
-     *
-     * Notes:
-     *   - This may need updates as YouTube changes component names.
-     *   - The badge-based heuristic is conservative; adjust the selector/regex if needed.
      */
     function hideInPageAds() {
         const adSelectors = [
@@ -226,23 +183,6 @@
      * Purpose:
      *   Adds a full-size opaque overlay on top of the HTML5 video player area while an ad is playing,
      *   with a transparent "hole" positioned exactly over the Skip Ad button to keep it clickable.
-     *
-     * Inputs:
-     *   - skipButton: HTMLElement | null
-     *       The DOM node for the YouTube skip button ('.ytp-skip-ad-button').
-     *       If null/undefined, overlay is added without a hole.
-     *
-     * Outputs:
-     *   - Appends a new overlay <div id="video-overlay"> into the player container.
-     *
-     * Returns:
-     *   - void
-     *
-     * Notes:
-     *   - The overlay uses pointer-events: none so it doesn’t block clicks,
-     *     and adds a child "hole" with pointer-events: auto to allow clicking on the
-     *     underlying skip button through that rectangle.
-     *   - Overlay is only created if one does not already exist.
      */
     function createVideoOverlay(skipButton) {
         const player = document.querySelector('.html5-video-player'); // YouTube player root
@@ -293,15 +233,6 @@
      *
      * Purpose:
      *   Deletes the overlay added by createVideoOverlay (if present).
-     *
-     * Inputs:
-     *   - None
-     *
-     * Outputs:
-     *   - Removes the DOM node with id="video-overlay" if it exists.
-     *
-     * Notes:
-     *   - Safe to call repeatedly; will do nothing if overlay is not present.
      */
     function removeVideoOverlay() {
         const existingOverlay = document.getElementById('video-overlay');
@@ -318,19 +249,9 @@
      * FUNCTION: createOrUpdateSkipOutline
      *
      * Purpose:
-     *   Draws (or repositions) a fixed-size white rectangle above the video player,
+     *   Draws (or repositions) a fixed-size glowing white rectangle above the video player,
      *   centered on the current skip button position. The rectangle is purely visual
      *   and allows clicks to pass through it (no interaction blocking).
-     *
-     * Inputs:
-     *   - skipButton: HTMLElement | null
-     *       Reference to the '.ytp-skip-ad-button'. If null/undefined, no outline is drawn.
-     *
-     * Outputs:
-     *   - Adds or updates a <div id="skip-outline"> inside the player container.
-     *
-     * Returns:
-     *   - void
      */
     function createOrUpdateSkipOutline(skipButton) {
         if (!skipButton) return;
@@ -359,8 +280,8 @@
             outline.style.background = 'transparent'; // no fill
             outline.style.pointerEvents = 'none'; // DO NOT consume clicks
             outline.style.zIndex = String(OUTLINE_Z); // above black overlay
-            outline.style.borderRadius = '2px'; // slight rounding
-            outline.style.boxShadow = '0 0 1px rgba(255,255,255,0.9)'; // subtle glow
+            outline.style.borderRadius = '4px';
+            outline.style.boxShadow = '0 0 4px rgba(255,255,255,1), 0 0 10px rgba(255,255,255,0.95), 0 0 20px rgba(255,255,255,0.8), 0 0 35px rgba(100,180,255,0.55)';
 
             // Ensure the player can host absolutely-positioned children
             const existingPosition = getComputedStyle(player).position;
@@ -381,16 +302,7 @@
      * FUNCTION: removeSkipOutline
      *
      * Purpose:
-     *   Removes the white rectangle that frames the skip button.
-     *
-     * Inputs:
-     *   - None
-     *
-     * Outputs:
-     *   - Deletes the DOM node with id="skip-outline" if present.
-     *
-     * Returns:
-     *   - void
+     *   Removes the glowing rectangle that frames the skip button.
      */
     function removeSkipOutline() {
         const outline = document.getElementById(SKIP_OUTLINE_ID);
