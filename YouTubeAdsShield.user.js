@@ -198,7 +198,8 @@
             'ytd-ad-slot-renderer',
             'ytd-companion-slot-renderer',
             'ytd-player-legacy-desktop-watch-ads-renderer',
-            'ytd-action-companion-ad-renderer'
+            'ytd-action-companion-ad-renderer',
+            'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]'
         ];
 
         // Mask all known ad container types
@@ -294,13 +295,10 @@
      *   Deletes the overlay added by createVideoOverlay (if present).
      *
      * Inputs:
-     *   - None.
+     *   - None
      *
      * Outputs:
      *   - Removes the DOM node with id="video-overlay" if it exists.
-     *
-     * Returns:
-     *   - void
      *
      * Notes:
      *   - Safe to call repeatedly; will do nothing if overlay is not present.
@@ -386,7 +384,7 @@
      *   Removes the white rectangle that frames the skip button.
      *
      * Inputs:
-     *   - None.
+     *   - None
      *
      * Outputs:
      *   - Deletes the DOM node with id="skip-outline" if present.
