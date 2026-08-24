@@ -2,7 +2,7 @@
 // @name         YouTube Ad Overlay with Skip Button Visible + Skip Outline
 // @namespace    http://tampermonkey.net/
 // @version      0.5
-// @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. Adds a glowing white outline where the skip button appears. The overlay adjusts on window resize and appears only during ads.
+// @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. Adds a fixed-size white glowing "HOPE" box where the skip button appears. The overlay adjusts on window resize and appears only during ads.
 // @author       tshutshut
 // @match        https://www.youtube.com/*
 // @grant        none
@@ -10,10 +10,6 @@
 
 (function () {
     'use strict';
-
-    // -------------------------------------------------------------------------
-    // Constants and top-level state
-    // -------------------------------------------------------------------------
 
     const DEFAULT_VOLUME = 0.5;
     let overlay = null;
@@ -24,17 +20,9 @@
     const OVERLAY_Z = 1000;
     const OUTLINE_Z = 1001;
 
-    // -------------------------------------------------------------------------
-    // Utilities
-    // -------------------------------------------------------------------------
-
     function isVisible(el) {
         return el && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden';
     }
-
-    // -------------------------------------------------------------------------
-    // Core logic: detect ad state, mute/unmute, manage overlays
-    // -------------------------------------------------------------------------
 
     function updateStatusAndVolume() {
         const video = document.querySelector('video');
@@ -64,10 +52,6 @@
             removeSkipOutline();
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Page ad masking for "in-page" ads
-    // -------------------------------------------------------------------------
 
     function maskElement(el) {
         if (el.dataset._masked === 'true') return;
@@ -112,10 +96,6 @@
             }
         });
     }
-
-    // -------------------------------------------------------------------------
-    // Video overlay creation/removal
-    // -------------------------------------------------------------------------
 
     function createVideoOverlay(skipButton) {
         const player = document.querySelector('.html5-video-player');
@@ -163,10 +143,6 @@
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Glowing skip-button highlight
-    // -------------------------------------------------------------------------
-
     function createOrUpdateSkipOutline(skipButton) {
         if (!skipButton) return;
 
@@ -179,7 +155,8 @@
         const centerX = sbRect.left - playerRect.left + sbRect.width / 2;
         const centerY = sbRect.top - playerRect.top + sbRect.height / 2;
 
-        const left = Math.round(centerX - SKIP_OUTLINE_WIDTH / 2);
+        // Shift the beacon left so its full glow remains visible inside the player.
+        const left = Math.round(centerX - SKIP_OUTLINE_WIDTH / 2 - 8);
         const top = Math.round(centerY - SKIP_OUTLINE_HEIGHT / 2);
 
         let outline = document.getElementById(SKIP_OUTLINE_ID);
@@ -187,18 +164,29 @@
             outline = document.createElement('div');
             outline.id = SKIP_OUTLINE_ID;
             outline.style.position = 'absolute';
+            outline.style.width = `${SKIP_OUTLINE_WIDTH}px`;
+            outline.style.height = `${SKIP_OUTLINE_HEIGHT}px`;
+            outline.style.boxSizing = 'border-box';
             outline.style.border = '3px solid white';
             outline.style.background = 'transparent';
             outline.style.pointerEvents = 'none';
             outline.style.zIndex = String(OUTLINE_Z);
             outline.style.borderRadius = '4px';
-
-            // A bright white core surrounded by several layers of glow.
             outline.style.boxShadow =
                 '0 0 4px rgba(255,255,255,1), ' +
                 '0 0 10px rgba(255,255,255,0.95), ' +
                 '0 0 20px rgba(255,255,255,0.8), ' +
-                '0 0 35px rgba(100,180,255,0.55)';
+                '0 0 35px rgba(100,180,255,0.65)';
+            outline.style.display = 'flex';
+            outline.style.alignItems = 'center';
+            outline.style.justifyContent = 'center';
+            outline.style.color = 'white';
+            outline.style.fontFamily = 'Arial, sans-serif';
+            outline.style.fontSize = '16px';
+            outline.style.fontWeight = '700';
+            outline.style.letterSpacing = '2px';
+            outline.style.textShadow = '0 0 4px white, 0 0 10px white';
+            outline.textContent = 'HOPE';
 
             const existingPosition = getComputedStyle(player).position;
             if (existingPosition === 'static' || !existingPosition) {
@@ -207,8 +195,6 @@
             player.appendChild(outline);
         }
 
-        outline.style.width = `${SKIP_OUTLINE_WIDTH}px`;
-        outline.style.height = `${SKIP_OUTLINE_HEIGHT}px`;
         outline.style.left = `${left}px`;
         outline.style.top = `${top}px`;
     }
@@ -217,10 +203,6 @@
         const outline = document.getElementById(SKIP_OUTLINE_ID);
         if (outline) outline.remove();
     }
-
-    // -------------------------------------------------------------------------
-    // Initial run + observers + timers
-    // -------------------------------------------------------------------------
 
     hideInPageAds();
     updateStatusAndVolume();
@@ -244,5 +226,4 @@
             removeSkipOutline();
         }
     });
-
 })();
