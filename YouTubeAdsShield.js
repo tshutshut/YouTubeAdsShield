@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Ad Overlay with Skip Button Visible + Skip Outline
 // @namespace    http://tampermonkey.net/
-// @version      0.7
+// @version      0.8
 // @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. Adds a white glowing "hope" box where the skip button appears and a centered monochrome ASCII monkey inside the video ad overlay.
 // @author       tshutshut
 // @match        https://www.youtube.com/*
@@ -28,7 +28,7 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWNKOxx0WMMMWWWWWMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xl:,;cxKOkdollo0WMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWNNOl;;;,'';:c:;;'';kXWMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWNNOl;;;,'';:c:;;'';kXWMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWNKOxdlc:;,;:;,,,;;::;'..,:lodk0XWMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMNKko:;,,,,;;;:::::::cc::;;;;;;,,'',:lx0NMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMWKxc,'',;;;::cccccccclllccccccc:::;;;,,'',cxKWMMMMMMMMMMMMMMMMMMMMMMMMMMM
@@ -164,11 +164,13 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
         monkey.style.padding = '0';
         monkey.style.color = '#aaa';
         monkey.style.background = 'transparent';
-        monkey.style.fontFamily = 'monospace';
-        monkey.style.fontWeight = 'bold';
+        monkey.style.fontFamily = '"Courier New", Courier, monospace';
+        monkey.style.fontWeight = '400';
         monkey.style.lineHeight = '1';
         monkey.style.whiteSpace = 'pre';
-        monkey.style.fontSize = 'clamp(4px, 0.7vw, 8px)';
+        monkey.style.fontSize = 'clamp(2px, 0.35vw, 4px)';
+        monkey.style.letterSpacing = '0';
+        monkey.style.fontVariantLigatures = 'none';
         monkey.style.pointerEvents = 'none';
         monkey.style.userSelect = 'none';
         monkey.style.zIndex = '1';
