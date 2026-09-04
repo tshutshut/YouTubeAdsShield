@@ -66,7 +66,7 @@
         cover.style.height = '100%';
         cover.style.backgroundColor = 'black';
         cover.style.opacity = '1';
-        cover.style.zIndex = '2147483646';
+        cover.style.zIndex = '999';
         cover.style.pointerEvents = 'none';
         el.appendChild(cover);
 
@@ -156,7 +156,6 @@
         const centerX = sbRect.left - playerRect.left + sbRect.width / 2;
         const centerY = sbRect.top - playerRect.top + sbRect.height / 2;
 
-        // Shift the beacon left so its full glow remains visible inside the player.
         const left = Math.round(centerX - SKIP_OUTLINE_WIDTH / 2 - 8);
         const top = Math.round(centerY - SKIP_OUTLINE_HEIGHT / 2);
 
