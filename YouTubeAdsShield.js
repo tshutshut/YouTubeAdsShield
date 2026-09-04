@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Ad Overlay with Skip Button Visible + Skip Outline
 // @namespace    http://tampermonkey.net/
-// @version      0.5
+// @version      0.6
 // @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. Adds a white glowing "hope" box where the skip button appears. The overlay adjusts on window resize and appears only during ads.
 // @author       tshutshut
 // @match        https://www.youtube.com/*
@@ -82,7 +82,8 @@
             'ytd-companion-slot-renderer',
             'ytd-player-legacy-desktop-watch-ads-renderer',
             'ytd-action-companion-ad-renderer',
-            'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]'
+            'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]',
+            'ytd-statement-banner-renderer'
         ];
 
         const ads = document.querySelectorAll(adSelectors.join(', '));
