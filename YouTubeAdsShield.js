@@ -1,8 +1,9 @@
 // ==UserScript==
-// @name         YouTube Ad Overlay with Skip Button Visible + Skip Outline
+// @name         YouTubeAdsShield
 // @namespace    http://tampermonkey.net/
 // @version      0.8
-// @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. Adds a white glowing "hope" box where the skip button appears and a centered monochrome ASCII monkey inside the video ad overlay.
+// @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. 
+//               Adds a white glowing "hope" box where the skip button appears and a centered monochrome ASCII monkey inside the video ad overlay.
 // @author       tshutshut
 // @match        https://www.youtube.com/*
 // @grant        none
@@ -20,7 +21,8 @@
     const OVERLAY_Z = 1000;
     const OUTLINE_Z = 1001;
 
-    const MONKEY_ASCII = `MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+    const MONKEY_ASCII = `
+MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
@@ -28,7 +30,7 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWNKOxx0WMMMWWWWWMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xl:,;cxKOkdollo0WMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWNNOl;;;,'';:c:;;'';kXWMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWNNOl;;;,'';:c:;;'';kXWMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWNKOxdlc:;,;:;,,,;;::;'..,:lodk0XWMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMNKko:;,,,,;;;:::::::cc::;;;;;;,,'',:lx0NMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMWKxc,'',;;;::cccccccclllccccccc:::;;;,,'',cxKWMMMMMMMMMMMMMMMMMMMMMMMMMMM
@@ -54,7 +56,7 @@ MMMMMMMMMMMMK:'','..',;:ccloddxxxxxdoc;,;loxo'.;kKKk;.'oxoc;,;codxxxxxddolcc:;,'
 MMMMMMMMMMMWk,.....',;::cccclloooolc;,;cdkOOkl,;d00d,,lkOOkdc;,;clooooolccc::;;,......,kWMMMMMMMMMMM
 MMMMMMMMMMMNo.....',;;:ccccc::::::;,,:oxkO00KK0O0KK0O0KK00Okdl:,,;:ccccc:ccc::;,'......oNMMMMMMMMMMM
 MMMMMMMMMMMXc....',,;::ccc::;,,'...,coxkO00KKKKKKKKKKKKK00OOkxo:'..',,;;::ccc::;,'.....cKMMMMMMMMMMM
-MMMMMMMMMMMK;....',;:::c:::;,'.. .'coxkkO000KKKKKKKKKK0000OOkxdl:....'',;:ccc::;,,'....;0WMMMMMMMMMMM
+MMMMMMMMMMMK;....',;:::c:::;,'.. .'coxkkO000KKKKKKKKKK0000OOkxdl:....'',;:ccc::;,,'....;0WMMMMMMMMMM
 MMMMMMMMMMMK:...'',;::::::;,'..  .,ldxkxdxOO000000000000Okdodxdoc'.  .'',;:::::;;,'....:KMMMMMMMMMMM
 MMMMMMMMMMMNo....',;;;;;;;,'...  .'coxkxddoooddxxxxxxddoooodxxdl:'.  ..',,;::::;;,'....oNMMMMMMMMMMM
 MMMMMMMMMMMMO,...'',,,,,,''...   ..,coxxkOOkxddddddddddxkkkkxdlc,..   ..'',;;;;,,''...,OMMMMMMMMMMMM
