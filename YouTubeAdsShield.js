@@ -2,8 +2,7 @@
 // @name         YouTubeAdsShield
 // @namespace    http://tampermonkey.net/
 // @version      0.8
-// @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. 
-//               Adds a white glowing "hope" box where the skip button appears and a centered monochrome ASCII monkey inside the video ad overlay.
+// @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. Adds a white glowing "hope" box where the skip button appears and a centered monochrome ASCII monkey inside the video ad overlay.
 // @author       tshutshut
 // @match        https://www.youtube.com/*
 // @grant        none
