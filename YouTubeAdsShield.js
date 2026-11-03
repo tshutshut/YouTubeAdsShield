@@ -2,7 +2,7 @@
 // @name         YouTubeAdsShield
 // @namespace    http://tampermonkey.net/
 // @version      0.9
-// @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. Adds a white glowing "hope" box where the skip button appears and a centered monochrome ASCII monkey inside the video ad overlay.
+// @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button clickable. Marks the skip button with a "hope" box, a field of random ASCII where the word is spelled by the gaps, and shows a centered monochrome ASCII monkey inside the video ad overlay.
 // @author       tshutshut
 // @match        https://www.youtube.com/*
 // @match        https://m.youtube.com/*
@@ -15,11 +15,16 @@
 
     const OVERLAY_ID = 'video-overlay';
     const SKIP_OUTLINE_ID = 'skip-outline';
-    const SKIP_OUTLINE_MIN_WIDTH = 160;
-    const SKIP_OUTLINE_MIN_HEIGHT = 48;
-    const SKIP_OUTLINE_PADDING = 8;
     const OVERLAY_Z = 1000;
     const OUTLINE_Z = 1001;
+
+    // "hope" box: a field of random ASCII where the word is spelled by the gaps.
+    const HOPE_WORD = 'hope';
+    // Heavy glyphs only: thin ones (. , ' `) leave holes that blur the letters.
+    const HOPE_CHARSET = '#$%&@*+=08BDGHKMNOQRSWXZbdgkmqw';
+    const HOPE_ROWS = 12;           // character rows inside the box; sets the font size
+    const HOPE_BORDER_PX = 1;
+    const HOPE_FONT = '"Courier New", Courier, monospace';
 
     const MONKEY_ASCII = `
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
@@ -268,52 +273,173 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
         if (existingOverlay) existingOverlay.remove();
     }
 
-    // The "hope" box is centred on the real skip button and grows with it,
-    // never smaller than the minimum size.
+    // Where the "hope" box goes, relative to the player. It keeps the skip
+    // button's top and bottom, and takes the button's gap to the bottom edge of
+    // the video as its margin on the right too, so the bottom-right margin is
+    // even. It never extends past the button, so every pixel of it sits over
+    // the clickable skip button, and it never leaves the player.
+    function hopeBoxRect(player, skipButton) {
+        const b = skipButton.getBoundingClientRect();
+        const p = player.getBoundingClientRect();
+
+        const margin = Math.max(0, p.bottom - b.bottom);
+        const left = Math.max(b.left, p.left);
+        const right = Math.min(b.right, p.right - margin);
+        const top = Math.max(b.top, p.top);
+        const bottom = Math.min(b.bottom, p.bottom);
+
+        if (right - left < 10 || bottom - top < 10) return null;
+        return {
+            left: Math.round(left - p.left),
+            top: Math.round(top - p.top),
+            width: Math.round(right - left),
+            height: Math.round(bottom - top)
+        };
+    }
+
+    // Measure the real size of one character cell (fonts and browser minimum
+    // font sizes vary, so this is measured rather than assumed).
+    function measureCell(container) {
+        const probe = document.createElement('span');
+        probe.textContent = 'M'.repeat(20);
+        probe.style.visibility = 'hidden';
+        probe.style.position = 'absolute';
+        container.appendChild(probe);
+        const rect = probe.getBoundingClientRect();
+        probe.remove();
+        return { width: rect.width / 20, height: rect.height };
+    }
+
+    // For each character cell, decide whether it falls inside the letters of
+    // HOPE_WORD, by drawing the word on a hidden canvas at the box's pixel size
+    // and sampling how much of each cell it covers.
+    function hopeMask(cols, rows, cellW, cellH) {
+        const scale = 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(cols * cellW * scale));
+        canvas.height = Math.max(1, Math.round(rows * cellH * scale));
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return null;
+
+        const fit = size => {
+            ctx.font = `bold ${size}px Arial, sans-serif`;
+            const m = ctx.measureText(HOPE_WORD);
+            return {
+                m,
+                w: m.actualBoundingBoxLeft + m.actualBoundingBoxRight,
+                h: m.actualBoundingBoxAscent + m.actualBoundingBoxDescent
+            };
+        };
+        let size = 100;
+        let t = fit(size);
+        size *= Math.min((canvas.width * 0.86) / t.w, (canvas.height * 0.86) / t.h);
+        t = fit(size);
+
+        ctx.fillStyle = '#000';
+        ctx.textBaseline = 'alphabetic';
+        ctx.textAlign = 'left';
+        ctx.fillText(
+            HOPE_WORD,
+            (canvas.width - t.w) / 2 + t.m.actualBoundingBoxLeft,
+            (canvas.height - t.h) / 2 + t.m.actualBoundingBoxAscent
+        );
+
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const mask = [];
+        for (let r = 0; r < rows; r++) {
+            const row = [];
+            const y0 = Math.floor(r * cellH * scale), y1 = Math.floor((r + 1) * cellH * scale);
+            for (let c = 0; c < cols; c++) {
+                const x0 = Math.floor(c * cellW * scale), x1 = Math.floor((c + 1) * cellW * scale);
+                let covered = 0, total = 0;
+                for (let y = y0; y < y1; y++) {
+                    for (let x = x0; x < x1; x++) {
+                        covered += data[(y * canvas.width + x) * 4 + 3];
+                        total += 255;
+                    }
+                }
+                row.push(total > 0 && covered / total > 0.4);
+            }
+            mask.push(row);
+        }
+        return mask;
+    }
+
+    function randomChar() {
+        return HOPE_CHARSET[Math.floor(Math.random() * HOPE_CHARSET.length)];
+    }
+
+    // Fill the box with random characters, leaving gaps in the shape of the
+    // word. Built once per box size, so it stays still while the ad plays.
+    function fillHopeBox(box, width, height) {
+        const innerW = width - 2 * HOPE_BORDER_PX;
+        const innerH = height - 2 * HOPE_BORDER_PX;
+
+        const text = document.createElement('pre');
+        text.style.margin = '0';
+        text.style.padding = '0';
+        text.style.color = 'white';
+        text.style.fontFamily = HOPE_FONT;
+        text.style.fontSize = `${(innerH / HOPE_ROWS).toFixed(2)}px`;
+        text.style.lineHeight = '1';
+        text.style.letterSpacing = '0';
+        text.style.whiteSpace = 'pre';
+        text.style.fontVariantLigatures = 'none';
+        text.style.userSelect = 'none';
+
+        box.replaceChildren(text);
+        const cell = measureCell(text);
+        const cols = Math.max(1, Math.floor(innerW / cell.width));
+        const rows = Math.max(1, Math.floor(innerH / cell.height));
+        const mask = hopeMask(cols, rows, cell.width, cell.height);
+
+        const lines = [];
+        for (let r = 0; r < rows; r++) {
+            let line = '';
+            for (let c = 0; c < cols; c++) {
+                line += mask && mask[r][c] ? ' ' : randomChar();
+            }
+            lines.push(line);
+        }
+        text.textContent = lines.join('\n');
+    }
+
     function createOrUpdateSkipOutline(player, skipButton) {
-        const sbRect = skipButton.getBoundingClientRect();
-        const playerRect = player.getBoundingClientRect();
-
-        const width = Math.max(SKIP_OUTLINE_MIN_WIDTH, Math.round(sbRect.width + 2 * SKIP_OUTLINE_PADDING));
-        const height = Math.max(SKIP_OUTLINE_MIN_HEIGHT, Math.round(sbRect.height + 2 * SKIP_OUTLINE_PADDING));
-
-        const centerX = sbRect.left - playerRect.left + sbRect.width / 2;
-        const centerY = sbRect.top - playerRect.top + sbRect.height / 2;
-
-        let outline = document.getElementById(SKIP_OUTLINE_ID);
-        if (!outline) {
-            outline = document.createElement('div');
-            outline.id = SKIP_OUTLINE_ID;
-            outline.style.position = 'absolute';
-            outline.style.boxSizing = 'border-box';
-            outline.style.border = '3px solid white';
-            outline.style.background = 'white';
-            outline.style.pointerEvents = 'none';
-            outline.style.zIndex = String(OUTLINE_Z);
-            outline.style.borderRadius = '4px';
-            outline.style.boxShadow =
-                '0 0 4px rgba(255,255,255,1), ' +
-                '0 0 10px rgba(255,255,255,0.95), ' +
-                '0 0 20px rgba(255,255,255,0.8), ' +
-                '0 0 35px rgba(100,180,255,0.65)';
-            outline.style.display = 'flex';
-            outline.style.alignItems = 'center';
-            outline.style.justifyContent = 'center';
-            outline.style.color = 'black';
-            outline.style.fontFamily = 'Arial, sans-serif';
-            outline.style.fontSize = '16px';
-            outline.style.fontWeight = '400';
-            outline.style.letterSpacing = '1px';
-            outline.textContent = 'hope';
-
-            ensurePositioned(player);
-            player.appendChild(outline);
+        const rect = hopeBoxRect(player, skipButton);
+        if (!rect) {
+            removeSkipOutline();
+            return;
         }
 
-        outline.style.width = `${width}px`;
-        outline.style.height = `${height}px`;
-        outline.style.left = `${Math.round(centerX - width / 2)}px`;
-        outline.style.top = `${Math.round(centerY - height / 2)}px`;
+        let box = document.getElementById(SKIP_OUTLINE_ID);
+        if (!box) {
+            box = document.createElement('div');
+            box.id = SKIP_OUTLINE_ID;
+            box.style.position = 'absolute';
+            box.style.boxSizing = 'border-box';
+            box.style.border = `${HOPE_BORDER_PX}px solid white`;
+            box.style.background = 'black';
+            box.style.overflow = 'hidden';
+            box.style.display = 'flex';
+            box.style.alignItems = 'center';
+            box.style.justifyContent = 'center';
+            box.style.pointerEvents = 'none';
+            box.style.zIndex = String(OUTLINE_Z);
+
+            ensurePositioned(player);
+            player.appendChild(box);
+        }
+
+        box.style.left = `${rect.left}px`;
+        box.style.top = `${rect.top}px`;
+        box.style.width = `${rect.width}px`;
+        box.style.height = `${rect.height}px`;
+
+        const sizeKey = `${rect.width}x${rect.height}`;
+        if (box.dataset.size !== sizeKey) {
+            box.dataset.size = sizeKey;
+            fillHopeBox(box, rect.width, rect.height);
+        }
     }
 
     function removeSkipOutline() {
