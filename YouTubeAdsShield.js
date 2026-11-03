@@ -178,6 +178,7 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
         'ytd-player-legacy-desktop-watch-ads-renderer',
         'ytd-action-companion-ad-renderer',
         'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]',
+        'ytd-engagement-panel-section-list-renderer[target-id^="shopping_panel"]',  // "Products" side panel
         'ytd-statement-banner-renderer'
     ].join(', ');
 
@@ -228,6 +229,12 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
     function hideInPageAds() {
         document.querySelectorAll(AD_SELECTORS).forEach(maskElement);
         document.querySelectorAll(POST_SELECTORS).forEach(maskElement);
+
+        // Product lists: curtain the whole side panel holding them, not just the
+        // list. Other side panels (chapters, transcript...) are left alone.
+        document.querySelectorAll('ytd-product-list-renderer').forEach(list => {
+            maskElement(list.closest('ytd-engagement-panel-section-list-renderer') || list);
+        });
 
         document.querySelectorAll(AD_BADGE_SELECTORS).forEach(badge => {
             const card = badge.closest(BADGE_CARDS);
