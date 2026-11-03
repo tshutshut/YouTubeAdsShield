@@ -1,22 +1,23 @@
 // ==UserScript==
 // @name         YouTubeAdsShield
 // @namespace    http://tampermonkey.net/
-// @version      0.8
+// @version      0.9
 // @description  Mute ads during playback and overlay video area with a black rectangle, keeping the skip button visible and clickable. Adds a white glowing "hope" box where the skip button appears and a centered monochrome ASCII monkey inside the video ad overlay.
 // @author       tshutshut
 // @match        https://www.youtube.com/*
+// @match        https://m.youtube.com/*
+// @match        https://music.youtube.com/*
 // @grant        none
 // ==/UserScript==
 
 (function () {
     'use strict';
 
-    const DEFAULT_VOLUME = 0.5;
-    let overlay = null;
-
+    const OVERLAY_ID = 'video-overlay';
     const SKIP_OUTLINE_ID = 'skip-outline';
-    const SKIP_OUTLINE_WIDTH = 160;
-    const SKIP_OUTLINE_HEIGHT = 48;
+    const SKIP_OUTLINE_MIN_WIDTH = 160;
+    const SKIP_OUTLINE_MIN_HEIGHT = 48;
+    const SKIP_OUTLINE_PADDING = 8;
     const OVERLAY_Z = 1000;
     const OUTLINE_Z = 1001;
 
@@ -73,32 +74,81 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM`;
 
+    // The main watch-page player. Scoping everything to it avoids grabbing
+    // homepage hover previews or other <video> elements by mistake.
+    const PLAYER_SELECTOR = '#movie_player';
+
+    // YouTube has renamed the skip button several times; check all known names.
+    const SKIP_BUTTON_SELECTORS = [
+        '.ytp-skip-ad-button',
+        '.ytp-ad-skip-button-modern',
+        '.ytp-ad-skip-button'
+    ];
+
+    // Whole-word match for ad badges, in English and French.
+    // Lookarounds on \p{L} instead of \b so accented letters (é) count as letters.
+    const AD_BADGE_PATTERN = /(?<!\p{L})(ad|ads|sponsored|annonce|sponsoris[ée]e?)(?!\p{L})/iu;
+
+    // Mute bookkeeping: remember whether the user was already muted before the
+    // ad, and restore exactly that afterwards. Volume level is never touched.
+    let mutedByShield = false;
+    let userWasMuted = false;
+
     function isVisible(el) {
-        return el && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden';
+        if (!el || el.offsetParent === null) return false;
+        if (getComputedStyle(el).visibility === 'hidden') return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+    }
+
+    function getPlayer() {
+        return document.querySelector(PLAYER_SELECTOR);
+    }
+
+    function getSkipButton(player) {
+        for (const selector of SKIP_BUTTON_SELECTORS) {
+            const button = player.querySelector(selector);
+            if (isVisible(button)) return button;
+        }
+        return null;
+    }
+
+    function ensurePositioned(el) {
+        const position = getComputedStyle(el).position;
+        if (position === 'static' || !position) {
+            el.style.position = 'relative';
+        }
     }
 
     function updateStatusAndVolume() {
-        const video = document.querySelector('video');
-        const adPlaying = document.querySelector('.ad-showing');
-        const skipButton = document.querySelector('.ytp-skip-ad-button');
-
+        const player = getPlayer();
+        if (!player) return;
+        const video = player.querySelector('video');
         if (!video) return;
 
+        const adPlaying = player.classList.contains('ad-showing');
+
         if (adPlaying) {
-            if (!video.muted && video.volume > 0) {
-                video.volume = 0;
+            if (!mutedByShield) {
+                userWasMuted = video.muted;
+                mutedByShield = true;
+            }
+            if (!video.muted) {
+                video.muted = true;
             }
 
-            createVideoOverlay(skipButton);
+            createVideoOverlay(player);
 
-            if (isVisible(skipButton)) {
-                createOrUpdateSkipOutline(skipButton);
+            const skipButton = getSkipButton(player);
+            if (skipButton) {
+                createOrUpdateSkipOutline(player, skipButton);
             } else {
                 removeSkipOutline();
             }
         } else {
-            if (video.volume === 0) {
-                video.volume = DEFAULT_VOLUME;
+            if (mutedByShield) {
+                video.muted = userWasMuted;
+                mutedByShield = false;
             }
 
             removeVideoOverlay();
@@ -144,10 +194,22 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
         const possibleAds = document.querySelectorAll('ytd-video-renderer, ytd-grid-video-renderer');
         possibleAds.forEach(el => {
+            if (el.dataset._masked === 'true') return;
             const badge = el.querySelector('#badge, .badge');
-            if (badge && /ad|sponsored/i.test(badge.textContent)) {
+            if (badge && AD_BADGE_PATTERN.test(badge.textContent)) {
                 maskElement(el);
             }
+        });
+    }
+
+    // YouTube mutates the DOM constantly; batch scans to at most one per frame.
+    let scanScheduled = false;
+    function scheduleInPageScan() {
+        if (scanScheduled) return;
+        scanScheduled = true;
+        requestAnimationFrame(() => {
+            scanScheduled = false;
+            hideInPageAds();
         });
     }
 
@@ -179,12 +241,13 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
         overlayElement.appendChild(monkey);
     }
 
-    function createVideoOverlay(skipButton) {
-        const player = document.querySelector('.html5-video-player');
-        if (!player || document.getElementById('video-overlay')) return;
+    // The overlay ignores all pointer events, so clicks fall through to the real
+    // skip button underneath it. No "hole" element is needed.
+    function createVideoOverlay(player) {
+        if (document.getElementById(OVERLAY_ID)) return;
 
-        overlay = document.createElement('div');
-        overlay.id = 'video-overlay';
+        const overlay = document.createElement('div');
+        overlay.id = OVERLAY_ID;
         overlay.style.position = 'absolute';
         overlay.style.top = '0';
         overlay.style.left = '0';
@@ -196,59 +259,32 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
         createMonkeyAscii(overlay);
 
-        if (skipButton) {
-            const hole = document.createElement('div');
-            const rect = skipButton.getBoundingClientRect();
-            const playerRect = player.getBoundingClientRect();
-
-            hole.style.position = 'absolute';
-            hole.style.width = `${rect.width}px`;
-            hole.style.height = `${rect.height}px`;
-            hole.style.left = `${rect.left - playerRect.left}px`;
-            hole.style.top = `${rect.top - playerRect.top}px`;
-            hole.style.backgroundColor = 'transparent';
-            hole.style.pointerEvents = 'auto';
-
-            overlay.appendChild(hole);
-        }
-
-        const existingPosition = getComputedStyle(player).position;
-        if (existingPosition === 'static' || !existingPosition) {
-            player.style.position = 'relative';
-        }
-
+        ensurePositioned(player);
         player.appendChild(overlay);
     }
 
     function removeVideoOverlay() {
-        const existingOverlay = document.getElementById('video-overlay');
-        if (existingOverlay) {
-            existingOverlay.remove();
-        }
+        const existingOverlay = document.getElementById(OVERLAY_ID);
+        if (existingOverlay) existingOverlay.remove();
     }
 
-    function createOrUpdateSkipOutline(skipButton) {
-        if (!skipButton) return;
-
-        const player = document.querySelector('.html5-video-player');
-        if (!player) return;
-
+    // The "hope" box is centred on the real skip button and grows with it,
+    // never smaller than the minimum size.
+    function createOrUpdateSkipOutline(player, skipButton) {
         const sbRect = skipButton.getBoundingClientRect();
         const playerRect = player.getBoundingClientRect();
 
+        const width = Math.max(SKIP_OUTLINE_MIN_WIDTH, Math.round(sbRect.width + 2 * SKIP_OUTLINE_PADDING));
+        const height = Math.max(SKIP_OUTLINE_MIN_HEIGHT, Math.round(sbRect.height + 2 * SKIP_OUTLINE_PADDING));
+
         const centerX = sbRect.left - playerRect.left + sbRect.width / 2;
         const centerY = sbRect.top - playerRect.top + sbRect.height / 2;
-
-        const left = Math.round(centerX - SKIP_OUTLINE_WIDTH / 2 - 8);
-        const top = Math.round(centerY - SKIP_OUTLINE_HEIGHT / 2);
 
         let outline = document.getElementById(SKIP_OUTLINE_ID);
         if (!outline) {
             outline = document.createElement('div');
             outline.id = SKIP_OUTLINE_ID;
             outline.style.position = 'absolute';
-            outline.style.width = `${SKIP_OUTLINE_WIDTH}px`;
-            outline.style.height = `${SKIP_OUTLINE_HEIGHT}px`;
             outline.style.boxSizing = 'border-box';
             outline.style.border = '3px solid white';
             outline.style.background = 'white';
@@ -270,15 +306,14 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
             outline.style.letterSpacing = '1px';
             outline.textContent = 'hope';
 
-            const existingPosition = getComputedStyle(player).position;
-            if (existingPosition === 'static' || !existingPosition) {
-                player.style.position = 'relative';
-            }
+            ensurePositioned(player);
             player.appendChild(outline);
         }
 
-        outline.style.left = `${left}px`;
-        outline.style.top = `${top}px`;
+        outline.style.width = `${width}px`;
+        outline.style.height = `${height}px`;
+        outline.style.left = `${Math.round(centerX - width / 2)}px`;
+        outline.style.top = `${Math.round(centerY - height / 2)}px`;
     }
 
     function removeSkipOutline() {
@@ -289,23 +324,10 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
     hideInPageAds();
     updateStatusAndVolume();
 
-    const observer = new MutationObserver(() => {
-        hideInPageAds();
-    });
-
+    const observer = new MutationObserver(scheduleInPageScan);
     observer.observe(document.body, { childList: true, subtree: true });
 
+    // Also repositions the "hope" box after resizes and fullscreen changes,
+    // so no separate resize handler is needed.
     setInterval(updateStatusAndVolume, 100);
-
-    window.addEventListener('resize', () => {
-        const skipButton = document.querySelector('.ytp-skip-ad-button');
-        removeVideoOverlay();
-        createVideoOverlay(skipButton);
-
-        if (isVisible(skipButton)) {
-            createOrUpdateSkipOutline(skipButton);
-        } else {
-            removeSkipOutline();
-        }
-    });
 })();
