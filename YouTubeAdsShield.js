@@ -271,18 +271,15 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
         if (existingOverlay) existingOverlay.remove();
     }
 
-    // Where the skip box goes, relative to the player. It keeps the skip
-    // button's top and bottom, and takes the button's gap to the bottom edge of
-    // the video as its margin on the right too, so the bottom-right margin is
-    // even. It never extends past the button, so every pixel of it sits over
-    // the clickable skip button, and it never leaves the player.
+    // Where the skip box goes, relative to the player: exactly over the skip
+    // button, so the box and the clickable area are the same rectangle.
+    // Clipped to the player so it never spills outside the video.
     function skipBoxRect(player, skipButton) {
         const b = skipButton.getBoundingClientRect();
         const p = player.getBoundingClientRect();
 
-        const margin = Math.max(0, p.bottom - b.bottom);
         const left = Math.max(b.left, p.left);
-        const right = Math.min(b.right, p.right - margin);
+        const right = Math.min(b.right, p.right);
         const top = Math.max(b.top, p.top);
         const bottom = Math.min(b.bottom, p.bottom);
 
