@@ -57,3 +57,20 @@ Simply sit back. Observe the darkness. Wait for the Skip button. And remember:
 The advertisement may be playing. But you don't have to watch the damn thing.
 
 And when you do click on that skip button, think of me, think of tshutshut.
+
+## What It Actually Does
+
+A userscript (Tampermonkey or similar) for `www.youtube.com`, `m.youtube.com` and `music.youtube.com`. Nothing is removed or blocked: things are covered with a black curtain, so you still see how much space ads take up.
+
+**Video ads in the player**
+- The video is covered in black, with an ASCII monkey in the middle.
+- The sound is muted. When the ad ends, your mute setting is restored as it was. Your volume level is never touched.
+- When the Skip button appears, a small white-outlined box of random characters sits exactly over it. Click it to skip.
+
+**Ads and promotions in the page** (black curtain, cannot be clicked)
+- Sponsored results in search.
+- Ad slots in the home feed, search and the side column.
+- Cards labelled "Sponsored" or "Ad" (also in French: "Sponsorisé", "Annonce").
+- Banner ads, and the companion ads shown next to a video ad.
+- The "Products" shopping panel on watch pages, X button included.
+- Channel posts (text and image updates, formerly the Community tab), everywhere, including a channel's own Posts tab.
