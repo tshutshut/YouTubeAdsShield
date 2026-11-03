@@ -159,10 +159,53 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
         }
     }
 
-    function maskElement(el) {
-        if (el.dataset._masked === 'true') return;
+    // Outer cards that wrap an ad or post. The curtain goes on these rather
+    // than on the inner element, so the whole card is covered.
+    const CARD_CONTAINERS = [
+        'ytd-search-pyv-renderer',            // sponsored result in search
+        'ytd-rich-item-renderer',             // one item of the home / subscriptions grid
+        'ytd-backstage-post-thread-renderer'  // wrapper around a channel post
+    ].join(', ');
 
-        el.style.position = 'relative';
+    // In-page ads.
+    const AD_SELECTORS = [
+        'ytd-promoted-video-renderer',
+        'ytd-display-ad-renderer',
+        'ytd-ad-slot-renderer',
+        'ytd-search-pyv-renderer',
+        'ytd-in-feed-ad-layout-renderer',
+        'ytd-companion-slot-renderer',
+        'ytd-player-legacy-desktop-watch-ads-renderer',
+        'ytd-action-companion-ad-renderer',
+        'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]',
+        'ytd-statement-banner-renderer'
+    ].join(', ');
+
+    // The "Sponsored" label on newer ad cards.
+    const AD_BADGE_SELECTORS = 'ad-badge-view-model, badge-shape.ytBadgeShapeAd';
+
+    // Channel posts (text/image updates, formerly the Community tab).
+    // Not ads, but curtained everywhere all the same.
+    const POST_SELECTORS = 'ytd-post-renderer';
+
+    // Cards a "Sponsored" badge can sit in.
+    const BADGE_CARDS = 'ytd-ad-slot-renderer, ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model';
+
+    // Put a black curtain over an element. The content stays in the page, it
+    // just can't be seen, clicked or reached with the keyboard.
+    function maskElement(el) {
+        const target = el.closest(CARD_CONTAINERS) || el;
+        if (target.dataset._masked === 'true') return;
+        // Already inside a curtain: nothing to add.
+        if (target.parentElement && target.parentElement.closest('[data-_masked="true"]')) return;
+
+        // An element shown as "contents" or "inline" has no box of its own, so
+        // a 100% cover inside it lands in the wrong place. Give it a real box.
+        const display = getComputedStyle(target).display;
+        if (display === 'contents' || display === 'inline') {
+            target.style.display = 'block';
+        }
+        ensurePositioned(target);
 
         const cover = document.createElement('div');
         cover.style.position = 'absolute';
@@ -173,27 +216,23 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
         cover.style.backgroundColor = 'black';
         cover.style.opacity = '1';
         cover.style.zIndex = '999';
-        cover.style.pointerEvents = 'none';
-        el.appendChild(cover);
+        // The curtain itself catches clicks, whatever the content's own CSS says.
+        cover.style.pointerEvents = 'auto';
+        target.appendChild(cover);
 
-        el.style.pointerEvents = 'none';
-        el.dataset._masked = 'true';
+        // No clicks, no keyboard focus on what's behind the curtain.
+        target.inert = true;
+        target.dataset._masked = 'true';
     }
 
     function hideInPageAds() {
-        const adSelectors = [
-            'ytd-promoted-video-renderer',
-            'ytd-display-ad-renderer',
-            'ytd-ad-slot-renderer',
-            'ytd-companion-slot-renderer',
-            'ytd-player-legacy-desktop-watch-ads-renderer',
-            'ytd-action-companion-ad-renderer',
-            'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]',
-            'ytd-statement-banner-renderer'
-        ];
+        document.querySelectorAll(AD_SELECTORS).forEach(maskElement);
+        document.querySelectorAll(POST_SELECTORS).forEach(maskElement);
 
-        const ads = document.querySelectorAll(adSelectors.join(', '));
-        ads.forEach(maskElement);
+        document.querySelectorAll(AD_BADGE_SELECTORS).forEach(badge => {
+            const card = badge.closest(BADGE_CARDS);
+            if (card) maskElement(card);
+        });
 
         const possibleAds = document.querySelectorAll('ytd-video-renderer, ytd-grid-video-renderer');
         possibleAds.forEach(el => {
